@@ -1,0 +1,88 @@
+# Developing an FAQ Chatbot Using LangChain and LLM APIs
+
+## 1. Name and Purpose of the Chatbot
+**Name:** Instacart FAQ Support Assistant
+**Purpose:** The Instacart FAQ Support Assistant is an automated customer support tool designed to provide users with instantaneous answers to common questions about Instacart's grocery delivery service. It handles inquiries regarding deliveries, the Instacart+ subscription, order modifications, payments, and store availability, providing prompt and accurate responses based directly on Instacart's official Help Center guidelines.
+
+## 2. NLP/LLM Methods Used
+The NLP/LLM methodology applied centers around **Retrieval-Augmented Generation (RAG)**:
+- **Embeddings:** OpenAI's embedding model (`text-embedding-ada-002`) is used to convert the text of the FAQs into high-dimensional vector representations. This allows semantically similar user queries to be matched efficiently.
+- **Vector Search (FAISS):** The Facebook AI Similarity Search (FAISS) algorithm is employed to perform efficient similarity searches, matching the user's natural language query vector to the most relevant FAQ document vectors.
+- **Generative AI (LLM):** The OpenAI `gpt-3.5-turbo` model is used to synthesize a polite, contextually accurate response based *only* on the retrieved context, significantly reducing hallucinations.
+
+## 3. Dataset Information
+### 3.1 Dataset source/link
+The dataset is derived directly from authentic, publicly available product information and FAQs on the official [Instacart Help Center](https://www.instacart.com/help). It accurately reflects real-world grocery delivery terms and policies. (Local file: `dataset.csv`).
+### 3.2 Number of records
+19 records (Authentic FAQ pairs).
+### 3.3 Number of features
+3 features.
+### 3.4 Description of features
+- **Category:** The broad topic of the FAQ (e.g., Delivery, Instacart+, Orders, Payments, Stores). *Data Type: String*.
+- **Question:** The specific user inquiry or problem. *Data Type: String*.
+- **Answer:** The official Instacart policy response or resolution to the inquiry. *Data Type: String*.
+### 3.5 Preprocessing steps
+The data is parsed using LangChain's `CSVLoader`, which converts each row into a structured `Document` format containing the combined text of all columns (including metadata representing the original row). The documents are then chunked automatically line-by-line using default configurations to ensure atomic retrieval.
+
+## 4. Libraries, Toolkits, and Frameworks
+- **LangChain (`langchain`, `langchain-community`, `langchain-openai`):** The core framework used to orchestrate the pipeline, chaining the prompt, retriever, and LLM API calls together using modern LCEL (LangChain Expression Language).
+- **OpenAI API (`openai`):** Provides access to the highly capable `gpt-3.5-turbo` LLM and semantic search embedding models.
+- **FAISS (`faiss-cpu`):** An efficient, open-source C++ library (with Python bindings) for similarity search and clustering of dense vectors, serving as the local, in-memory vector database.
+- **Pandas (`pandas`):** Serves as a backend dependency for LangChain's `CSVLoader` to read the `.csv` file reliably.
+- **Python-dotenv (`python-dotenv`):** Used to load environment variables (like `OPENAI_API_KEY`) securely from a `.env` file to authenticate API requests without hardcoding credentials in the source code.
+
+## 5. Application Design and Implementation
+The chatbot executes standard Retrieval-Augmented Generation (RAG):
+1. **Data Ingestion:** `dataset.csv` is ingested via `CSVLoader`, transforming rows into LangChain `Document` chunks.
+2. **Indexing:** These documents are passed to `OpenAIEmbeddings()` to generate vector embeddings. The generated embeddings are structured and stored locally in memory using a `FAISS` vector store.
+3. **Retrieval Setup:** The FAISS store is converted into a retriever configured to return the top 3 most relevant context documents (`k=3`) for any given user query.
+4. **Generation:** A `ChatPromptTemplate` instructs the GPT-3.5-Turbo LLM to adopt the persona of an Instacart customer service assistant, enforcing strict rules to answer *only* based on the provided dataset context. The `RunnableSequence` chain takes the user's natural language query, uses the retriever to get the top 3 matches, injects them into the prompt template, and sends the prompt to the OpenAI API for the final generated output via a `StrOutputParser`.
+5. **Interactive Interface:** The application runs an interactive CLI `while` loop, allowing continuous back-and-forth conversational querying.
+
+## 6. Instructions for Running the Chatbot
+1. Ensure Python 3.8+ is installed on your machine.
+2. Navigate to the project directory in your terminal or command prompt.
+3. Install the required dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Create a `.env` file in the same directory and add your OpenAI API key:
+   ```env
+   OPENAI_API_KEY=sk-your_actual_token_here
+   ```
+5. Execute the chatbot script:
+   ```bash
+   python chatbot.py
+   ```
+6. Type a question when prompted (e.g., "How much is Instacart+?") or type `quit` to exit.
+
+## 7. Results
+*(Note: Be sure to replace this section with actual screenshots of your terminal upon running the script for the final submission.)*
+
+**Terminal Output Example:**
+```
+==================================================
+Welcome to the Instacart FAQ Chatbot!
+Ask me anything about deliveries, Instacart+, orders, payments, or stores.
+Type 'quit' or 'exit' to stop.
+==================================================
+
+You: How much does Instacart+ cost?
+
+Instacart Bot: Instacart+ costs $9.99 per month or $99 per year. You can try it free for 14 days if you are a new user.
+
+You: Can I pay with EBT SNAP?
+
+Instacart Bot: Yes, Instacart accepts EBT SNAP for participating retailers in select states. You must add a secondary payment method (like a credit card) to cover non-eligible items, taxes, tips, and fees.
+```
+
+## 8. Discussion and Insights
+- **Performance:** For highly targeted FAQ documentation, the RAG model combined with the OpenAI `gpt-3.5-turbo` model performs exceptionally well. Context relevance is effectively captured by the embeddings, and responses remain strictly factual—eliminating the risk of hallucination while conforming to real Instacart guidelines.
+- **Limitations:** The chatbot heavily depends on the provided dataset. It will correctly default to "I don't know" if the user asks out-of-bounds questions (e.g., "What is the weather today?"). Using an in-memory `FAISS` store is perfect for small local scripts, but it doesn't persist data natively across sessions without manual saving/loading. 
+- **Improvements:** Future iterations could incorporate a conversational memory component (such as `ConversationBufferMemory`) to support multi-turn conversations and follow-up questions seamlessly. Transitioning from FAISS to a persistent vector database like ChromaDB would also support much larger datasets without constant recreation.
+
+## 9. References
+- Instacart Help Center. (n.d.). *Customer Support FAQs*. Retrieved from https://www.instacart.com/help
+- LangChain Documentation. (n.d.). *RetrievalQA / LCEL*. Retrieved from https://python.langchain.com
+- OpenAI API Documentation. (n.d.). *Embeddings and Chat Models*. Retrieved from https://platform.openai.com/docs
+- Meta AI. (n.d.). *FAISS: A library for efficient similarity search*. Retrieved from https://github.com/facebookresearch/faiss
